@@ -38,16 +38,23 @@ async def get_sandbox(project: str = "default"):
 @router.post("/api/sandbox/run")
 async def run_sandbox_command(payload: RunCommandPayload, project: str = "default"):
     import subprocess
+    import os
     try:
         p_sandbox = get_project_sandbox_dir(project)
         # Execute command in shell environment scoped to the project folder
+        # Use powershell on Windows to allow relative path scripts and forward slash normalization
+        extra_args = {}
+        if os.name == "nt":
+            extra_args["executable"] = "powershell"
+
         res = subprocess.run(
             payload.command,
             shell=True,
             cwd=str(p_sandbox),
             capture_output=True,
             text=True,
-            timeout=15
+            timeout=15,
+            **extra_args
         )
         return {
             "status": "success",
@@ -64,6 +71,7 @@ async def run_sandbox_command(payload: RunCommandPayload, project: str = "defaul
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/api/sandbox/file")
 async def save_sandbox_file(payload: FilePayload, project: str = "default"):

@@ -3,8 +3,36 @@ import { useApp } from '../context/AppContext';
 
 const stripAnsi = (str: string | null | undefined): string => {
   if (!str) return '';
+  // eslint-disable-next-line no-control-regex
   const clean = str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
   return clean.replace(/\[\d{1,2}m/g, '');
+};
+
+const TruncatedText: React.FC<{ text: string; maxLength?: number }> = ({ text, maxLength = 180 }) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
+  if (text.length <= maxLength) {
+    return <span style={{ whiteSpace: 'pre-wrap' }}>{text}</span>;
+  }
+
+  const shownText = isExpanded ? text : `${text.slice(0, maxLength)}`;
+
+  return (
+    <span style={{ whiteSpace: 'pre-wrap' }}>
+      {shownText}
+      {!isExpanded && '...'}
+      <button 
+        type="button"
+        className="see-more-link"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsExpanded(!isExpanded);
+        }}
+      >
+        {isExpanded ? 'See less' : 'See more'}
+      </button>
+    </span>
+  );
 };
 
 export const EditorArea: React.FC = () => {
@@ -116,7 +144,7 @@ export const EditorArea: React.FC = () => {
             </div>
 
             {selectedCommit && (
-              <div style={{ padding: '16px 20px', background: 'rgba(0,0,0,0.25)', borderBottom: '1px solid var(--border-color)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ padding: '16px 20px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: '0.74rem', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>COMMIT INSIGHTS</span>
                   <span style={{
@@ -132,7 +160,7 @@ export const EditorArea: React.FC = () => {
                   </span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', background: 'var(--bg-primary)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                   <div>
                     <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Duration</div>
                     <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{selectedCommit.duration_ms}ms</div>
@@ -154,8 +182,11 @@ export const EditorArea: React.FC = () => {
                 {/* Raw Prompt */}
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>User Request Prompt:</div>
-                  <div style={{ color: 'var(--text-primary)', lineHeight: 1.45, background: 'rgba(0,0,0,0.15)', padding: '10px 14px', borderRadius: '6px', fontSize: '0.78rem', border: '1px solid var(--border-color)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{stripAnsi(selectedCommit.raw_prompt)}</div>
+                  <div style={{ color: 'var(--text-primary)', lineHeight: 1.45, background: 'var(--bg-tertiary)', padding: '10px 14px', borderRadius: '6px', fontSize: '0.78rem', border: '1px solid var(--border-color)', wordBreak: 'break-all' }}>
+                    <TruncatedText text={stripAnsi(selectedCommit.raw_prompt)} />
+                  </div>
                 </div>
+
 
                 {/* Optimized Prompt Collapsible */}
                 {selectedCommit.optimized_prompt && (
@@ -193,7 +224,7 @@ export const EditorArea: React.FC = () => {
               ) : (
                 Object.entries(selectedDiff.diffs).map(([path, diffData]) => (
                   <div key={path} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <div className="diff-header-bar" style={{ background: 'rgba(0,0,0,0.1)', padding: '8px 16px' }}>
+                    <div className="diff-header-bar" style={{ background: 'var(--bg-secondary)', padding: '8px 16px' }}>
                       <span>File: <strong style={{ color: 'var(--text-primary)' }}>{path}</strong></span>
                       <span className="logo-badge" style={{
                         fontSize: '0.58rem',
@@ -260,7 +291,7 @@ export const EditorArea: React.FC = () => {
         className="terminal-panel" 
         style={{
           borderTop: '1px solid var(--border-color)',
-          background: 'rgba(5, 7, 10, 0.95)',
+          background: 'var(--bg-tertiary)',
           display: 'flex',
           flexDirection: 'column',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -269,6 +300,7 @@ export const EditorArea: React.FC = () => {
           zIndex: 30
         }}
       >
+
         {/* Terminal Header */}
         <div 
           className="glass-panel-header" 
@@ -280,7 +312,7 @@ export const EditorArea: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'rgba(0,0,0,0.3)',
+            background: 'var(--bg-secondary)',
             borderBottom: isTerminalOpen ? '1px solid var(--border-color)' : 'none'
           }}
           onClick={() => setIsTerminalOpen(!isTerminalOpen)}
@@ -358,12 +390,13 @@ export const EditorArea: React.FC = () => {
               style={{
                 flex: 1,
                 overflowY: 'auto',
-                background: '#04060a',
+                background: 'var(--bg-primary)',
                 padding: '12px 16px',
                 display: 'flex',
                 flexDirection: 'column'
               }}
             >
+
               <div className="terminal-lines-container">
                 {terminalOutput.split('\n').map((line, idx) => {
                   const cleanLine = stripAnsi(line);
@@ -397,13 +430,13 @@ export const EditorArea: React.FC = () => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                background: 'rgba(0, 0, 0, 0.4)',
+                background: 'var(--bg-secondary)',
                 borderTop: '1px solid var(--border-color)',
                 padding: '6px 16px',
                 gap: '8px'
               }}
             >
-              <span style={{ color: '#00f2fe', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', userSelect: 'none' }}>$</span>
+              <span style={{ color: 'var(--neon-cyan)', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', userSelect: 'none' }}>$</span>
               <input 
                 type="text" 
                 value={terminalCommand} 
@@ -414,12 +447,13 @@ export const EditorArea: React.FC = () => {
                   background: 'transparent',
                   border: 'none',
                   outline: 'none',
-                  color: '#cbd5e1',
+                  color: 'var(--text-primary)',
                   fontFamily: 'JetBrains Mono, monospace',
                   fontSize: '0.78rem'
                 }}
                 disabled={isTerminalRunning}
               />
+
               <button 
                 type="submit" 
                 className="btn btn-neon-green" 
@@ -428,10 +462,7 @@ export const EditorArea: React.FC = () => {
                   height: '24px',
                   padding: '0 12px',
                   fontSize: '0.68rem',
-                  borderRadius: '4px',
-                  background: 'rgba(34, 197, 94, 0.1)',
-                  borderColor: 'rgba(34, 197, 94, 0.3)',
-                  color: '#86efac'
+                  borderRadius: '4px'
                 }}
               >
                 {isTerminalRunning ? 'Running...' : 'Execute'}

@@ -1264,6 +1264,29 @@ body.light .btn-neon-cyan {
   color: #fecdd3;
 }
 
+body.light .btn-danger {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+}
+
+.btn-neon-green {
+  background: rgba(56, 239, 125, 0.1);
+  border-color: rgba(56, 239, 125, 0.3);
+  color: #a7f3d0;
+}
+
+body.light .btn-neon-green {
+  background: rgba(5, 150, 105, 0.1);
+  border-color: rgba(5, 150, 105, 0.3);
+  color: #059669;
+}
+
+.btn-neon-green:hover {
+  background: rgba(56, 239, 125, 0.2);
+  box-shadow: 0 0 10px rgba(56, 239, 125, 0.25);
+}
+
 .btn-danger:hover {
   background: rgba(255, 8, 68, 0.2);
 }
@@ -1732,21 +1755,21 @@ body.light .details-content-box {
 }
 
 .term-line.prompt {
-  color: #00f2fe;
+  color: var(--neon-cyan);
   font-weight: 700;
 }
 
 .term-line.success {
-  color: #38ef7d;
+  color: var(--neon-green);
   font-weight: 600;
 }
 
 .term-line.error {
-  color: #ff0844;
+  color: var(--neon-rose);
 }
 
 .term-line.standard {
-  color: #cbd5e1;
+  color: var(--text-primary);
 }
 
 /* Chat Input Glassmorphism Focus border styling */
@@ -1760,4 +1783,28 @@ body.light .details-content-box {
   border-top-color: rgba(155, 81, 224, 0.4);
   box-shadow: 0 -4px 15px rgba(155, 81, 224, 0.08);
 }
+
+.chat-card-input-container:focus-within {
+  border-color: var(--neon-purple) !important;
+  box-shadow: 0 0 10px rgba(155, 81, 224, 0.2) !important;
+}
+
+.sidebar-toggle-tab:hover {
+  background: var(--bg-tertiary) !important;
+  color: var(--neon-cyan) !important;
+}
+
+.sidebar-toggle-handle {
+  opacity: 0.9;
+  transition: opacity 0.2s ease, background-color 0.2s ease, left 0.25s cubic-bezier(0.4, 0, 0.2, 1), right 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease !important;
+}
+
+.sidebar-toggle-handle:hover {
+  opacity: 1 !important;
+  background: var(--bg-tertiary) !important;
+  color: var(--neon-cyan) !important;
+  transform: translateY(-50%) scale(1.08) !important;
+}
+
+
 

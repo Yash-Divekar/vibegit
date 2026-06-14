@@ -16,27 +16,17 @@ export const Header: React.FC = () => {
     handleOpenFile,
     isDrawerOpen,
     setIsDrawerOpen,
-    setShowProjectSelectorModal,
-    isLeftPanelOpen,
-    setIsLeftPanelOpen,
-    isRightPanelOpen,
-    setIsRightPanelOpen
+    setShowProjectSelectorModal
   } = useApp();
+
+
+
 
   return (
     <header className="app-header" style={{ padding: '0 20px', height: '56px' }}>
       {/* Brand Logo Container (Logo image removed as requested) */}
       <div className="logo-container" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <button
-          className="btn-icon"
-          onClick={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
-          title={isLeftPanelOpen ? "Collapse Left Panel" : "Expand Left Panel"}
-          style={{ width: '32px', height: '32px', borderRadius: '8px', padding: 0 }}
-        >
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={isLeftPanelOpen ? "M11 19l-7-7 7-7m8 14l-7-7 7-7" : "M13 5l7 7-7 7M5 5l7 7-7 7"} />
-          </svg>
-        </button>
+
         <span className="logo-text" style={{ fontSize: '1.4rem', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800 }}>
           VibeGit
         </span>
@@ -44,6 +34,8 @@ export const Header: React.FC = () => {
           IDE Layer
         </span>
       </div>
+
+
 
       {/* Global Search in Header Middle */}
       <div className="header-search-container" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 45 }}>
@@ -61,7 +53,7 @@ export const Header: React.FC = () => {
               style={{
                 borderRadius: '8px',
                 padding: '6px 30px 6px 12px',
-                height: '32px',
+                height: '34px',
                 fontSize: '0.78rem',
                 width: '100%'
               }}
@@ -90,10 +82,11 @@ export const Header: React.FC = () => {
           <button 
             type="submit" 
             className="btn btn-neon-cyan" 
-            style={{ padding: '0 12px', height: '32px', fontSize: '0.78rem', borderRadius: '8px' }}
+            style={{ padding: '0 12px', height: '34px', fontSize: '0.78rem', borderRadius: '8px' }}
           >
             Search
           </button>
+
 
           {/* Global Search Matches Floating Panel */}
           {globalSearchVal && globalMatches.length > 0 && (
@@ -184,21 +177,11 @@ export const Header: React.FC = () => {
           <SettingsIcon />
           Metrics & Keys
         </button>
-
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', userSelect: 'none' }}>|</span>
-
-        {/* Right Sidebar toggle */}
-        <button
-          className="btn-icon"
-          onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
-          title={isRightPanelOpen ? "Collapse Right Panel" : "Expand Right Panel"}
-          style={{ width: '32px', height: '32px', borderRadius: '8px', padding: 0 }}
-        >
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={isRightPanelOpen ? "M13 5l7 7-7 7M5 5l7 7-7 7" : "M11 19l-7-7 7-7m8 14l-7-7 7-7"} />
-          </svg>
-        </button>
       </div>
+
+
+
+
     </header>
   );
 };

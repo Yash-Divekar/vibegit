@@ -129,7 +129,7 @@ export const SettingsDrawer: React.FC = () => {
                 <select
                   value={provider}
                   onChange={e => {
-                    setProvider(e.target.value as any);
+                    setProvider(e.target.value as 'gemini' | 'openai');
                     fetch(`${BACKEND_URL}/api/settings`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -204,7 +204,7 @@ export const SettingsDrawer: React.FC = () => {
               <label className="form-label" style={{ fontSize: '0.72rem' }}>Theme Palette</label>
               <select
                 value={themePalette}
-                onChange={e => setThemePalette(e.target.value as any)}
+                onChange={e => setThemePalette(e.target.value as 'cyberpunk' | 'ocean' | 'emerald' | 'monochrome')}
                 className="form-input"
                 style={{ background: 'var(--bg-primary)', borderRadius: '6px', height: '34px', fontSize: '0.78rem' }}
               >

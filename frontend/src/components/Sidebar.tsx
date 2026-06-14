@@ -24,6 +24,8 @@ export const Sidebar: React.FC = () => {
     handleSelectCommit
   } = useApp();
 
+
+
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(true);
   const [isTimelineOpen, setIsTimelineOpen] = useState(true);
 
@@ -65,12 +67,12 @@ export const Sidebar: React.FC = () => {
                   value={newFilePath}
                   onChange={e => setNewFilePath(e.target.value)}
                   className="sidebar-input"
-                  style={{ width: '80px', height: '22px', borderRadius: '4px', fontSize: '0.68rem', padding: '2px 6px' }}
+                  style={{ width: '80px', height: '26px', borderRadius: '4px', fontSize: '0.68rem', padding: '2px 6px' }}
                 />
                 <button 
                   type="submit" 
                   className="btn-icon" 
-                  style={{ padding: '0 6px', height: '22px', fontSize: '0.68rem', borderRadius: '4px' }}
+                  style={{ padding: '0 6px', height: '26px', fontSize: '0.68rem', borderRadius: '4px' }}
                 >
                   +
                 </button>
@@ -92,6 +94,8 @@ export const Sidebar: React.FC = () => {
               )}
             </button>
           </div>
+
+
         </div>
         {isWorkspaceOpen && (
           <div className="glass-panel-body" style={{ padding: '4px 8px' }}>
@@ -140,10 +144,10 @@ export const Sidebar: React.FC = () => {
       <div className="commit-timeline-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div 
           className="glass-panel-header" 
-          style={{ padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}
+          style={{ padding: '12px 9px', cursor: 'pointer', userSelect: 'none' }}
           onClick={() => setIsTimelineOpen(!isTimelineOpen)}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%' }}>
             <span className="glass-panel-title" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: '0.78rem' }}>
               <TimeIcon />
               Commit Timeline
@@ -161,8 +165,9 @@ export const Sidebar: React.FC = () => {
                       if (!e.target.value) setSearchResults([]);
                     }}
                     className="sidebar-input"
-                    style={{ width: '90px', height: '22px', fontSize: '0.68rem', borderRadius: '4px', padding: '2px 6px' }}
+                    style={{ width: '90px', height: '26px', fontSize: '0.68rem', borderRadius: '4px', padding: '2px 6px' }}
                   />
+
                 </form>
               )}
               <button 
@@ -186,12 +191,21 @@ export const Sidebar: React.FC = () => {
         {isTimelineOpen && (
           <div className="glass-panel-body" style={{ padding: '8px 12px' }}>
             <div className="vertical-commit-list" style={{ gap: '12px' }}>
-              {commits.length === 0 ? (
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', padding: '24px' }}>
-                  No commits yet.
-                </div>
-              ) : (
-                commits.map((commit) => {
+              {(() => {
+                const commitsToRender = searchQuery.trim() === '' 
+                  ? commits 
+                  : commits.filter(c => searchResults.includes(c.hash));
+                
+                if (commitsToRender.length === 0) {
+                  return (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', padding: '24px' }}>
+                      No commits found.
+                    </div>
+                  );
+                }
+
+                return commitsToRender.map((commit) => {
+
                   const isRoot = commit.hash === `root-${activeProject}`;
                   const isSelected = commit.hash === selectedCommitHash;
                   const isActive = commit.hash === activeCommitHash;
@@ -248,11 +262,13 @@ export const Sidebar: React.FC = () => {
                       </div>
                     </div>
                   );
-                })
-              )}
+                });
+              })()}
+
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

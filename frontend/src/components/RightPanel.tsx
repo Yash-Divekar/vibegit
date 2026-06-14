@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 
 const stripAnsi = (str: string | null | undefined): string => {
   if (!str) return '';
+  // eslint-disable-next-line no-control-regex
   const clean = str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
   return clean.replace(/\[\d{1,2}m/g, '');
 };
@@ -51,6 +52,8 @@ export const RightPanel: React.FC = () => {
     chatHistoryEndRef,
     textareaRef
   } = useApp();
+
+
 
   const [isStepperOpen, setIsStepperOpen] = useState(true);
 
@@ -134,7 +137,7 @@ export const RightPanel: React.FC = () => {
           </div>
         )}
       </div>
- 
+
       {/* Vibe Chat Console */}
       <div className="chat-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         <div className="glass-panel-header" style={{ padding: '10px 16px' }}>
@@ -145,6 +148,8 @@ export const RightPanel: React.FC = () => {
             AI Prompt Console
           </span>
         </div>
+
+
         <div className="chat-history" style={{ padding: '16px', gap: '16px', flex: 1, overflowY: 'auto' }}>
           {commits.filter(c => c.hash !== `root-${activeProject}`).map((commit) => (
             <React.Fragment key={commit.hash}>
@@ -261,18 +266,16 @@ export const RightPanel: React.FC = () => {
         {/* Chat form area with mention feature */}
         <form 
           onSubmit={handleSubmitPrompt} 
-          className="chat-input-area chat-input-area-container" 
+          className="chat-input-area" 
           style={{ 
             padding: '12px 16px', 
-            gap: '10px', 
-            alignItems: 'center',
-            display: 'flex',
-            background: 'rgba(0, 0, 0, 0.25)', 
-            borderTop: '1px solid var(--border-color)' 
+            background: 'var(--bg-secondary)', 
+            borderTop: '1px solid var(--border-color)',
+            position: 'relative'
           }}
         >
           {showMentionBox && filteredMentionFiles.length > 0 && (
-            <div className="mention-autocomplete-box" style={{ bottom: '68px', borderRadius: '8px', padding: '4px', boxShadow: '0 -8px 25px rgba(0,0,0,0.3)' }}>
+            <div className="mention-autocomplete-box" style={{ bottom: '90px', borderRadius: '8px', padding: '4px', boxShadow: '0 -8px 25px rgba(0,0,0,0.3)', zIndex: 10 }}>
               {filteredMentionFiles.map((f) => (
                 <div
                   key={f}
@@ -289,50 +292,70 @@ export const RightPanel: React.FC = () => {
             </div>
           )}
  
-          <textarea
-            ref={textareaRef}
-            className="chat-textarea"
-            placeholder="Submit prompt to active sandbox (use @ to reference files)..."
-            value={promptInput}
-            onChange={handleTextareaChange}
-            disabled={pipelineActive}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmitPrompt(e);
-              }
-            }}
-            style={{ 
-              borderRadius: '8px', 
-              padding: '8px 12px', 
-              fontSize: '0.8rem', 
-              height: '46px',
-              minHeight: '46px',
-              maxHeight: '150px',
-              lineHeight: '1.4',
-              background: 'rgba(0,0,0,0.45)',
-              alignSelf: 'center',
-              resize: 'vertical'
-            }}
-          />
-          <button
-            type="submit"
-            disabled={pipelineActive || !promptInput.trim()}
-            className="btn btn-neon-purple"
-            style={{ 
-              height: '46px', 
-              padding: '0 20px', 
-              borderRadius: '8px', 
-              fontFamily: 'Plus Jakarta Sans, sans-serif', 
-              fontWeight: 700, 
-              fontSize: '0.8rem',
-              alignSelf: 'center'
+          <div 
+            className="chat-card-input-container"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              width: '100%',
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              padding: '8px 12px',
+              gap: '6px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+              transition: 'border-color 0.25s ease, box-shadow 0.25s ease'
             }}
           >
-            Vibe
-          </button>
+            <textarea
+              ref={textareaRef}
+              className="chat-textarea"
+              placeholder="Submit prompt to active sandbox (use @ to reference files)..."
+              value={promptInput}
+              onChange={handleTextareaChange}
+              disabled={pipelineActive}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmitPrompt(e);
+                }
+              }}
+              style={{ 
+                width: '100%',
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                color: 'var(--text-primary)',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '0.8rem', 
+                minHeight: '46px',
+                height: '46px',
+                lineHeight: '1.4',
+                resize: 'none',
+                padding: 0
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <button
+                type="submit"
+                disabled={pipelineActive || !promptInput.trim()}
+                className="btn btn-neon-purple"
+                style={{ 
+                  height: '28px', 
+                  padding: '0 14px', 
+                  borderRadius: '6px', 
+                  fontFamily: 'Plus Jakarta Sans, sans-serif', 
+                  fontWeight: 700, 
+                  fontSize: '0.74rem'
+                }}
+              >
+                Vibe
+              </button>
+            </div>
+          </div>
 
         </form>
+
       </div>
     </div>
   );

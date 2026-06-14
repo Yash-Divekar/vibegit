@@ -1,7 +1,9 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { Project, Commit, CommitDiff, RlmStep, Stats, SearchMatch } from '../types';
 
 const BACKEND_URL = 'http://localhost:8002';
+const TERMINAL_WELCOME = 'Welcome to VibeGit Terminal Console.\nUse the input below to run terminal commands inside the project sandbox environment.\n\n';
 
 interface AppContextType {
   isLightMode: boolean;
@@ -191,8 +193,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Terminal State
   const [terminalCommand, setTerminalCommand] = useState('python main.py');
-  const [terminalOutput, setTerminalOutput] = useState('Welcome to VibeGit Terminal Console.\nUse the input below to run terminal commands inside the project sandbox environment.\n\n');
+  const [terminalOutput, setTerminalOutput] = useState(TERMINAL_WELCOME);
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
+
   const [isTerminalRunning, setIsTerminalRunning] = useState(false);
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
@@ -216,6 +219,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     fetchSettings();
     fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync active project states
@@ -233,7 +237,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fetchCommits();
       fetchStats();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProject]);
+
+  // Debounced Global Search Effect
+  useEffect(() => {
+    const trimmed = globalSearchVal.trim();
+    if (!trimmed) {
+      setGlobalMatches([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearchingGlobal(true);
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/project/search?query=${encodeURIComponent(trimmed)}&project=${activeProject}`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setGlobalMatches(data);
+        } else {
+          setGlobalMatches([]);
+        }
+      } catch (err) {
+        console.error(err);
+        setGlobalMatches([]);
+      } finally {
+        setIsSearchingGlobal(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [globalSearchVal, activeProject]);
+
+  // Debounced Commit Search Effect
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/search?query=${encodeURIComponent(trimmed)}&project=${activeProject}`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setSearchResults(data.map((c: { hash: string }) => c.hash));
+        } else {
+          setSearchResults([]);
+        }
+      } catch (err) {
+        console.error(err);
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeProject]);
+
 
   // Sync active file and project frameworks to preset terminal command
   useEffect(() => {
@@ -301,7 +360,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setOpenaiKey('');
       fetchSettings();
       alert('Settings saved successfully!');
-    } catch (err) {
+    } catch {
       alert('Failed to save settings.');
     }
   };
@@ -361,7 +420,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = await res.json();
         alert(`Error: ${data.detail || 'Failed to create/import project'}`);
       }
-    } catch (err) {
+    } catch {
       alert('Error creating/importing project.');
     }
   };
@@ -392,7 +451,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await fetchSandbox();
         handleOpenFile(newFilePath);
       }
-    } catch (err) {
+    } catch {
       alert('Error creating file.');
     }
   };
@@ -409,7 +468,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await fetchSandbox();
         handleCloseTab(path);
       }
-    } catch (err) {
+    } catch {
       alert('Error deleting file.');
     }
   };
@@ -445,7 +504,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsEditingFile(false);
         await fetchSandbox();
       }
-    } catch (err) {
+    } catch {
       alert('Failed to save manual edit.');
     }
   };
@@ -505,7 +564,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await fetchStats();
         alert(`Successfully checked out commit: ${hash}`);
       }
-    } catch (err) {
+    } catch {
       alert('Rollback failed.');
     }
   };
@@ -581,7 +640,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!promptInput.trim() || pipelineActive) return;
 
     const finalPrompt = promptInput;
-    const mentions = promptInput.match(/@[\w\.\-\/]+/g) || [];
+    const mentions = promptInput.match(/@[\w./-]+/g) || [];
     let customContext = '';
 
     for (const mention of mentions) {
@@ -652,6 +711,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updatePipelineStep = (stepName: string, data: any) => {
     setPipelineSteps(prev => {
       return prev.map(s => {
@@ -727,7 +787,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await fetch(`${BACKEND_URL}/api/search?query=${encodeURIComponent(searchQuery)}&project=${activeProject}`);
       const data = await res.json();
       if (Array.isArray(data)) {
-        setSearchResults(data.map((c: any) => c.hash));
+        setSearchResults(data.map((c: { hash: string }) => c.hash));
       } else {
         setSearchResults([]);
       }
@@ -793,16 +853,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = await res.json();
         setTerminalOutput(prev => prev + `Error running command: ${data.detail || 'Server error'}\n`);
       }
-    } catch (err: any) {
-      setTerminalOutput(prev => prev + `Error connection failed: ${err.message || err}\n`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTerminalOutput(prev => prev + `Error connection failed: ${msg}\n`);
     } finally {
       setIsTerminalRunning(false);
     }
   };
 
   const clearTerminal = () => {
-    setTerminalOutput('');
+    setTerminalOutput(TERMINAL_WELCOME);
   };
+
 
   return (
     <AppContext.Provider value={{
