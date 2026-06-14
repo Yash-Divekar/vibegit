@@ -21,7 +21,6 @@ def tokenize(text: str) -> list[str]:
 async def search_context_in_commits(query: str, project_name: str = "default", top_k: int = 3) -> list[dict[str, Any]]:
     """Searches past commits for a specific project for relevance to the query using TF-IDF."""
     commits = await get_commits(project_name)
-    # Filter out root commit
     root_hash = f"root-{project_name}"
     commits = [c for c in commits if c["hash"] != root_hash]
     
@@ -64,25 +63,32 @@ async def search_context_in_commits(query: str, project_name: str = "default", t
     return [c for score, c in scores[:top_k]]
 
 
-# --- LLM Client Helpers ---
+# --- LLM Client Helpers using Latest google-genai SDK ---
 async def call_llm(prompt: str, system_instruction: str = "") -> str:
-    """Calls Gemini or OpenAI based on settings."""
+    """Calls Gemini (using the latest google-genai SDK) or OpenAI based on settings."""
     gemini_key = await get_setting("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
     openai_key = await get_setting("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
     provider = await get_setting("PROVIDER", "gemini")
 
     if provider == "gemini" and gemini_key:
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
-                system_instruction=system_instruction if system_instruction else None
+            from google import genai
+            from google.genai import types
+            
+            client = genai.Client(api_key=gemini_key)
+            config = types.GenerateContentConfig(
+                system_instruction=system_instruction if system_instruction else None,
+                temperature=0.2
             )
-            response = model.generate_content(prompt)
+            
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=config
+            )
             return response.text
         except Exception as e:
-            raise RuntimeError(f"Gemini API call failed: {str(e)}")
+            raise RuntimeError(f"Google GenAI (gemini-2.5-flash) failed: {str(e)}")
 
     elif provider == "openai" and openai_key:
         try:
@@ -146,8 +152,16 @@ async def run_rlm_pipeline(
     # --- Step 2: Context Compression & Prompt Optimization ---
     log_step("optimizing", {"status": "compressing_context"})
     
-    raw_context_str = json.dumps(active_files) + json.dumps(retrieved_commits_data)
-    raw_tokens = len(raw_context_str) // 4 + len(raw_prompt) // 4
+    # Compute true naive prompt sizes (Prompt + Sandbox Files + Git History + naive instructions overhead)
+    files_chars = sum(len(content) for content in active_files.values())
+    history_chars = sum(len(c["prompt"]) for c in retrieved_commits_data)
+    
+    # Naive instruction overhead: standard prompt templates, instructions, wrappers
+    naive_instruction_chars = 4000
+    total_raw_chars = len(raw_prompt) + files_chars + history_chars + naive_instruction_chars
+    
+    # Estimate tokens (1 token = 4 chars)
+    raw_tokens = max(total_raw_chars // 4, 1)
     
     optimized_prompt = ""
     compression_ratio = 1.0
@@ -155,13 +169,16 @@ async def run_rlm_pipeline(
 
     if use_mock:
         await asyncio_sleep(1)
-        tokens_after = int(raw_tokens * 0.35)
+        # Smart simulated compression
+        tokens_after = max(int(raw_tokens * 0.35), 45)
+        if tokens_after >= raw_tokens:
+            tokens_after = raw_tokens
         compression_ratio = round(raw_tokens / tokens_after, 2)
         optimized_prompt = (
             f"# Optimized Prompt for VibeGit (Project: {project_name})\n"
             f"**Goal**: {raw_prompt}\n\n"
-            f"**Context**: Using relevant files: {', '.join(active_files.keys())}.\n"
-            f"Please implement the changes in structured JSON format."
+            f"**Context**: Scoped files: {', '.join(active_files.keys())}.\n"
+            f"Implement changes in structured JSON."
         )
     else:
         optimizer_sys_inst = (
@@ -180,8 +197,11 @@ async def run_rlm_pipeline(
         )
         try:
             optimized_prompt = await call_llm(optimizer_prompt, optimizer_sys_inst)
-            tokens_after = len(optimized_prompt) // 4
-            compression_ratio = round(raw_tokens / max(tokens_after, 1), 2)
+            tokens_after = max(len(optimized_prompt) // 4, 1)
+            # Ensure compression metrics are correct (we don't expand)
+            if tokens_after >= raw_tokens:
+                raw_tokens = tokens_after
+            compression_ratio = round(raw_tokens / tokens_after, 2)
         except Exception as e:
             optimized_prompt = f"Failed to optimize prompt: {str(e)}. Using original."
             tokens_after = raw_tokens
@@ -228,7 +248,14 @@ async def run_rlm_pipeline(
             generated_files = generate_mock_files(raw_prompt, active_files)
             explanation = f"Simulated code generation for prompt: '{raw_prompt}'."
         else:
-            feedback_context = f"\n\nPrevious attempt failed evaluation with score: {score * 100}%. Feedback: {feedback}\nPlease fix these issues." if retry_count > 0 else ""
+            feedback_context = ""
+            if retry_count > 0:
+                feedback_context = (
+                    f"\n\n--- Previous Attempt Generated Code ---\n{json.dumps(generated_files, indent=2)}\n\n"
+                    f"Previous attempt failed evaluation with score: {score * 100}%.\n"
+                    f"Feedback: {feedback}\n"
+                    f"Please recursively adjust the code to address these issues and output the entire new codebase snapshot matching the JSON schema."
+                )
             generation_prompt = f"Optimized Prompt:\n{optimized_prompt}{feedback_context}"
             try:
                 raw_llm_response = await call_llm(generation_prompt, generator_sys_instruction)
@@ -251,6 +278,7 @@ async def run_rlm_pipeline(
         log_step("evaluating", {"retry_number": run_id, "status": "evaluating_changes"})
         
         syntax_errors = check_syntax(project_name, written_files)
+        test_failures = run_sandbox_tests(project_name) if not syntax_errors else []
         
         if syntax_errors:
             score = 0.4
@@ -258,7 +286,10 @@ async def run_rlm_pipeline(
         else:
             if use_mock:
                 await asyncio_sleep(1.0)
-                if retry_count == 0 and ("bug" in raw_prompt.lower() or "error" in raw_prompt.lower() or len(raw_prompt) % 2 == 0):
+                if test_failures:
+                    score = 0.6
+                    feedback = f"Unit tests failed:\n" + "\n".join(test_failures)
+                elif retry_count == 0 and ("bug" in raw_prompt.lower() or "error" in raw_prompt.lower() or len(raw_prompt) % 2 == 0):
                     score = 0.72
                     feedback = "Syntax is valid, but missing edge-case error checks."
                 else:
@@ -268,15 +299,21 @@ async def run_rlm_pipeline(
                 evaluator_sys_instruction = (
                     "You are an independent Code Evaluator agent. Your job is to assess the code changes "
                     "against the user prompt. Rate the changes from 0.0 (fails completely) to 1.0 (perfectly fits and robust). "
+                    "If unit tests are present and fail, you must score the attempt less than 0.8 to trigger corrective loop iteration.\n"
                     "You must output a JSON object with this schema:\n"
                     "{\n"
                     "  \"score\": 0.95,\n"
                     "  \"feedback\": \"detailed review of changes, noting any bugs or omissions\"\n"
                     "}"
                 )
+                test_context = ""
+                if test_failures:
+                    test_context = f"\n\n--- Unit Test Execution Failures ---\n" + "\n".join(test_failures)
                 eval_prompt = (
                     f"User Request: {raw_prompt}\n\n"
+                    f"Sandbox Files Context (Before Changes):\n{json.dumps(active_files, indent=2)}\n\n"
                     f"Generated Code Changes:\n{json.dumps(generated_files, indent=2)}\n\n"
+                    f"{test_context}\n"
                     f"Please score and review."
                 )
                 try:
@@ -312,7 +349,6 @@ async def run_rlm_pipeline(
     cost = 0.00015 * (raw_tokens + tokens_after) if not use_mock else 0.0
 
     if success:
-        # Finalize commit
         commit_hash = await make_virtual_commit(
             project_name=project_name,
             raw_prompt=raw_prompt,
@@ -340,13 +376,11 @@ async def run_rlm_pipeline(
             "optimized_prompt": optimized_prompt
         }
     else:
-        # Rollback project sandbox files to head if failed completely
         all_commits = await get_commits(project_name)
         if all_commits:
             success_commits = [c for c in all_commits if c["status"] == "success"]
             head_hash = success_commits[-1]["hash"] if success_commits else f"root-{project_name}"
             
-            # Restore files
             file_versions = await get_file_versions(head_hash)
             current_files = get_sandbox_files(project_name)
             head_paths = {fv["file_path"] for fv in file_versions}
@@ -360,7 +394,6 @@ async def run_rlm_pipeline(
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(fv["content"], encoding="utf-8")
         
-        # Commit the failure run
         commit_hash = await make_virtual_commit(
             project_name=project_name,
             raw_prompt=raw_prompt,
@@ -413,6 +446,48 @@ def parse_llm_json(raw_text: str) -> dict[str, Any]:
                 pass
         return {"explanation": "Parsing error", "file_operations": []}
 
+def check_js_ts_braces(content: str) -> bool:
+    """Smarter brace and bracket checker for JS/TS that ignores string literals and comments."""
+    # Remove single-line comments // ...
+    content_no_comments = re.sub(r"//.*$", "", content, flags=re.MULTILINE)
+    # Remove multi-line comments /* ... */
+    content_no_comments = re.sub(r"/\*.*?\*/", "", content_no_comments, flags=re.DOTALL)
+    # Remove strings
+    pattern_strings = r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|`(?:\\.|[^`\\])*`'
+    content_clean = re.sub(pattern_strings, "", content_no_comments)
+    return content_clean.count("{") == content_clean.count("}") and content_clean.count("[") == content_clean.count("]")
+
+def run_sandbox_tests(project_name: str) -> list[str]:
+    """Runs Python unit tests within the project sandbox directory and returns tracebacks of failures."""
+    p_sandbox = get_project_sandbox_dir(project_name)
+    test_failures = []
+    
+    # Scan for Python unittest files (typically prefixed with test_ or suffix test)
+    test_files = [f.relative_to(p_sandbox).as_posix() for f in p_sandbox.rglob("test_*.py") if f.is_file()]
+    if not test_files:
+        test_files = [f.relative_to(p_sandbox).as_posix() for f in p_sandbox.rglob("*_test.py") if f.is_file()]
+        
+    for tf in test_files:
+        try:
+            # Execute python -m unittest [test_file] in the project folder
+            res = subprocess.run(
+                [sys.executable, "-m", "unittest", tf],
+                cwd=str(p_sandbox),
+                capture_output=True,
+                text=True,
+                timeout=8
+            )
+            if res.returncode != 0:
+                # unittest output is printed to stderr by default
+                output = res.stderr or res.stdout
+                test_failures.append(f"Test failure in {tf}:\n{output.strip()}")
+        except subprocess.TimeoutExpired:
+            test_failures.append(f"Test file {tf} execution timed out (limit: 8s).")
+        except Exception as e:
+            test_failures.append(f"Failed to run test {tf}: {str(e)}")
+            
+    return test_failures
+
 def check_syntax(project_name: str, file_paths: list[str]) -> list[str]:
     errors = []
     p_sandbox = get_project_sandbox_dir(project_name)
@@ -433,8 +508,8 @@ def check_syntax(project_name: str, file_paths: list[str]) -> list[str]:
                 errors.append(f"{rel_path}: {e.stderr.strip()}")
         elif rel_path.endswith((".js", ".jsx", ".ts", ".tsx")):
             content = full_path.read_text(encoding="utf-8")
-            if content.count("{") != content.count("}") or content.count("[") != content.count("]"):
-                errors.append(f"{rel_path}: Unbalanced curly braces or brackets detected.")
+            if not check_js_ts_braces(content):
+                errors.append(f"{rel_path}: Unbalanced curly braces or brackets detected (excluding comments and string contents).")
     return errors
 
 def generate_mock_files(prompt: str, active_files: dict[str, str]) -> dict[str, str]:

@@ -25,6 +25,7 @@ async def init_db() -> None:
             CREATE TABLE IF NOT EXISTS projects (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
+                framework TEXT NOT NULL DEFAULT 'plain',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
@@ -80,17 +81,23 @@ async def init_db() -> None:
         try:
             await db.execute("SELECT project_name FROM commits LIMIT 1")
         except aiosqlite.OperationalError:
-            # Column doesn't exist, alter table
             await db.execute("ALTER TABLE commits ADD COLUMN project_name TEXT NOT NULL DEFAULT 'default'")
             await db.commit()
 
-        # 2. Insert default project if not exists
+        # 2. Ensure framework column exists in projects
+        try:
+            await db.execute("SELECT framework FROM projects LIMIT 1")
+        except aiosqlite.OperationalError:
+            await db.execute("ALTER TABLE projects ADD COLUMN framework TEXT NOT NULL DEFAULT 'plain'")
+            await db.commit()
+
+        # 3. Insert default project if not exists
         cursor = await db.execute("SELECT COUNT(*) FROM projects WHERE name = 'default'")
         exists = (await cursor.fetchone())[0]
         if exists == 0:
-            await db.execute("INSERT INTO projects (name) VALUES ('default')")
+            await db.execute("INSERT INTO projects (name, framework) VALUES ('default', 'plain')")
             
-        # 3. Check if we need to insert root commit for default project
+        # 4. Check if we need to insert root commit for default project
         cursor = await db.execute("SELECT COUNT(*) FROM commits WHERE project_name = 'default'")
         count = (await cursor.fetchone())[0]
         if count == 0:
@@ -105,11 +112,14 @@ async def init_db() -> None:
     finally:
         await db.close()
 
-async def create_project(name: str) -> None:
+async def create_project(name: str, framework: str = "plain") -> None:
     db = await get_db()
     try:
-        # Save project name
-        await db.execute("INSERT OR IGNORE INTO projects (name) VALUES (?)", (name,))
+        # Save project name and framework
+        await db.execute(
+            "INSERT OR IGNORE INTO projects (name, framework) VALUES (?, ?)",
+            (name, framework)
+        )
         
         # Check if project already has a root commit
         cursor = await db.execute("SELECT COUNT(*) FROM commits WHERE project_name = ?", (name,))
