@@ -1,10 +1,11 @@
 import json
 import asyncio
 from typing import Any
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from rlm_engine import run_rlm_pipeline
+from rate_limiter import limiter
 
 router = APIRouter(tags=["prompt"])
 
@@ -13,7 +14,8 @@ class PromptPayload(BaseModel):
     project_name: str = "default"
 
 @router.post("/api/prompt")
-async def process_prompt(payload: PromptPayload):
+@limiter.limit("5/minute")
+async def process_prompt(payload: PromptPayload, request: Request):
     async def event_generator():
         queue = asyncio.Queue()
 

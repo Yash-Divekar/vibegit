@@ -1,7 +1,13 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from rate_limiter import limiter
 
 from database import init_db
 from routers.projects import router as projects_router
@@ -13,6 +19,9 @@ from routers.explorer import router as explorer_router
 from routers.stats import router as stats_router
 
 app = FastAPI(title="VibeGit API", version="1.0.0")
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +55,20 @@ app.include_router(prompt_router)
 app.include_router(explorer_router)
 app.include_router(stats_router)
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    return {"status": "ok", "service": "vibegit-backend"}
+dist_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+if os.path.isdir(dist_path):
+    assets_path = os.path.join(dist_path, "assets")
+    if os.path.isdir(assets_path):
+        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+        
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        file_path = os.path.join(dist_path, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(dist_path, "index.html"))
+else:
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {"status": "ok", "service": "vibegit-backend"}

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from git_engine import (
     get_sandbox_files,
     get_project_sandbox_dir
 )
+from rate_limiter import limiter
 
 router = APIRouter(tags=["sandbox"])
 
@@ -36,7 +37,8 @@ async def get_sandbox(project: str = "default"):
     }
 
 @router.post("/api/sandbox/run")
-async def run_sandbox_command(payload: RunCommandPayload, project: str = "default"):
+@limiter.limit("10/minute")
+async def run_sandbox_command(payload: RunCommandPayload, request: Request, project: str = "default"):
     import subprocess
     import os
     try:

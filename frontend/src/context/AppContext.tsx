@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { Project, Commit, CommitDiff, RlmStep, Stats, SearchMatch } from '../types';
 
-const BACKEND_URL = 'http://localhost:8002';
+const BACKEND_URL = import.meta.env.PROD ? '' : 'http://localhost:8002';
 const TERMINAL_WELCOME = 'Welcome to VibeGit Terminal Console.\nUse the input below to run terminal commands inside the project sandbox environment.\n\n';
 
 interface AppContextType {
