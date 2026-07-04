@@ -36,3 +36,16 @@ obj/
 .project/
 .screenshots/
 .tmh/
+
+# Large Datasets & Archives
+data/
+Data/
+dataset/
+datasets/
+temp/
+tmp/
+*.zip
+*.rar
+*.tar.gz
+*.h5
+*.model
